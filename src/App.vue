@@ -2,7 +2,7 @@
   <div id="app">
     <div ref="content" class="custom-content">
       <div class="container-fluid">
-        <table class="table table-dark">
+        <table class="table table-dark table-striped">
           <thead>
             <tr>
               <th scope="col">Team A</th>
@@ -14,11 +14,21 @@
           </thead>
           <tbody>
             <tr v-for="match in matchList" :key="match.id">
-              <td>{{ match.localTeam }}</td>
-              <td>{{ match.guestTeam }}</td>
+              <template v-if="match.localTeam || match.guestTeam">
+                <td>{{ match.localTeam }}</td>
+                <td>{{ match.guestTeam }}</td>
+              </template>
+              <template v-else>
+                <td colspan="2">{{ match.name }}</td>
+              </template>
               <td>{{ match.gameMap }}</td>
               <td>{{ match.gametype }}</td>
-              <td>{{ match.status }}</td>
+              <td>
+                {{ match.status }}<br />
+                <template v-if="match.scheduledStartTs">
+                  <span class="small">{{ match.scheduledStartTs }}</span>
+                </template>
+              </td>
             </tr>
           </tbody>
         </table>
