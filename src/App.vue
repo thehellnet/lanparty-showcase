@@ -1,38 +1,10 @@
 <template>
   <div id="app">
-    <div ref="content" class="custom-content">
-      <div class="container-fluid">
-        <table class="table table-dark table-striped">
-          <thead>
-            <tr>
-              <th scope="col">Team A</th>
-              <th scope="col">Team B</th>
-              <th scope="col">Map</th>
-              <th scope="col">Gametype</th>
-              <th scope="col">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="match in matchList" :key="match.id">
-              <template v-if="match.localTeam || match.guestTeam">
-                <td>{{ match.localTeam }}</td>
-                <td>{{ match.guestTeam }}</td>
-              </template>
-              <template v-else>
-                <td colspan="2">{{ match.name }}</td>
-              </template>
-              <td>{{ match.gameMap }}</td>
-              <td>{{ match.gametype }}</td>
-              <td>
-                {{ match.status }}<br />
-                <template v-if="match.scheduledStartTs">
-                  <span class="small">{{ match.scheduledStartTs }}</span>
-                </template>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    <div class="custom-content">
+      <vue-scroll ref="paneScroller">
+        <div ref="paneContent" />
+        <div ref="paneEnd" />
+      </vue-scroll>
     </div>
     <div class="custom-header" />
     <div class="custom-footer">
@@ -43,7 +15,7 @@
       class="custom-status"
       v-bind:class="{
         'bg-online': statusOnline,
-        'bg-offline': !statusOnline
+        'bg-offline': !statusOnline,
       }"
     />
   </div>
@@ -51,21 +23,19 @@
 
 <script lang="ts">
 import { Component, Vue } from "vue-property-decorator";
-import MatchList from "@/components/MatchList.vue";
+import PaneMatches from "@/components/PaneMatches.vue";
 import websocketService from "@/services/websocket.service";
 import { Action, Command } from "@/model/websocket/command";
 import { PaneMode } from "@/model/constant/PaneMode";
 import { Match } from "@/model/matches/Match";
+import { vuescroll } from "vuescroll/types/vuescroll";
 
 @Component({
-  components: { MatchList }
+  components: { MatchList: PaneMatches },
 })
 export default class App extends Vue {
   public clockValue = "loading...";
   public statusOnline = false;
-
-  public gameTag = "";
-  public matchList: Match[] = [];
 
   public created() {
     setInterval(this.updateClock, 1000);
@@ -80,15 +50,29 @@ export default class App extends Vue {
       this.statusOnline = false;
     });
 
-    websocketService.onMessage(command => this.handleCommand(command));
+    websocketService.onMessage((command) => this.handleCommand(command));
   }
 
   private handleCommand(command: Command) {
     if (command.action == Action.DISPLAY_PANE) {
       if (command.args.mode == PaneMode.MATCHES) {
-        this.gameTag = command.args.gameTag;
-        this.matchList = command.args.matches;
-        console.log(this.matchList);
+        const gameTag: string = command.args.gameTag;
+        const matchList: Match[] = command.args.matches;
+
+        const componentInstance = new PaneMatches({
+          propsData: {
+            gameTag: gameTag,
+            matchList: matchList,
+          },
+        });
+
+        const paneContent: Element = this.$refs.paneContent as Element;
+        componentInstance.$mount(paneContent).$el;
+
+        setTimeout(() => {
+          const paneScroller = this.$refs.paneScroller as vuescroll;
+          paneScroller.scrollTo({ y: "100%" }, 8000, "easeInOutQuad");
+        }, 500);
       }
     }
   }
@@ -96,27 +80,12 @@ export default class App extends Vue {
   private updateClock() {
     const now = new Date();
 
-    const year = now
-      .getFullYear()
-      .toString()
-      .padStart(4, "0");
+    const year = now.getFullYear().toString().padStart(4, "0");
     const month = (now.getMonth() + 1).toString().padStart(2, "0");
-    const day = now
-      .getDay()
-      .toString()
-      .padStart(2, "0");
-    const hour = now
-      .getHours()
-      .toString()
-      .padStart(2, "0");
-    const minute = now
-      .getMinutes()
-      .toString()
-      .padStart(2, "0");
-    const second = now
-      .getSeconds()
-      .toString()
-      .padStart(2, "0");
+    const day = now.getDay().toString().padStart(2, "0");
+    const hour = now.getHours().toString().padStart(2, "0");
+    const minute = now.getMinutes().toString().padStart(2, "0");
+    const second = now.getSeconds().toString().padStart(2, "0");
 
     this.clockValue = `${year}-${month}-${day} ${hour}:${minute}:${second}`;
   }
@@ -171,6 +140,7 @@ div.custom-header {
 div.custom-footer {
   position: fixed;
   width: 100%;
+  top: calc(100vh) - ($height-footer + $height-status);
   bottom: $height-status;
   height: $height-footer;
   background: linear-gradient(180deg, $color-content 0%, $color-footer 100%);
@@ -191,6 +161,7 @@ div.custom-content {
   top: $height-header;
   bottom: $height-status + $height-footer;
   background-color: $color-content;
+  overflow-y: hidden;
 }
 
 div.custom-footer div {
