@@ -1,10 +1,10 @@
-import {AbstractService} from "@/services/abstract.service";
-import {WebsocketClient} from "@/helpers/websocket.client";
-import {EventDispatcher, Handler} from "@/helpers/event";
-import {PathUtility} from "@/helpers/path.utility";
-import {Action, Command} from "@/model/websocket/command";
+import { AbstractService } from "@/services/abstract.service";
+import { WebsocketClient } from "@/helpers/websocket.client";
+import { EventDispatcher, Handler } from "@/helpers/event";
+import { PathUtility } from "@/helpers/path.utility";
+import { Command } from "@/model/websocket/command";
 
-const URL = "ws://127.0.0.1:8080/lanparty_manager/api/public/ws/showcase";
+const URL = "ws://172.16.83.212:8080/lanparty_manager/api/public/ws/showcase";
 
 const TAG = PathUtility.basename(window.location.href) || "anonymous";
 
@@ -28,7 +28,7 @@ class WebsocketService extends AbstractService {
       this._onDisconnect.fire();
     });
 
-    this.websocketClient.onMessage(message => {
+    this.websocketClient.onMessage((message) => {
       this.handleMessage(message);
     });
   }
@@ -63,7 +63,7 @@ class WebsocketService extends AbstractService {
 
     const command: Command = {
       action: content.action,
-      args: content.args
+      args: content.args,
     };
 
     this._onMessage.fire(command);

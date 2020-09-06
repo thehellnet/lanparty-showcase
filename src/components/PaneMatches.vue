@@ -35,7 +35,7 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from "vue-property-decorator";
-import { Match } from "@/model/matches/Match";
+import { Match } from "@/model/Match";
 
 @Component
 export default class PaneMatches extends Vue {

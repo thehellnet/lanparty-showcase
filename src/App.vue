@@ -6,7 +6,9 @@
         <div ref="paneEnd" />
       </vue-scroll>
     </div>
-    <div class="custom-header" />
+    <div class="custom-header">
+      <h1>{{ titleValue }}</h1>
+    </div>
     <div class="custom-footer">
       <div class="separator"></div>
       <div class="footer-clock">{{ clockValue }}</div>
@@ -23,23 +25,27 @@
 
 <script lang="ts">
 import { Component, Vue } from "vue-property-decorator";
-import PaneMatches from "@/components/PaneMatches.vue";
-import websocketService from "@/services/websocket.service";
 import { Action, Command } from "@/model/websocket/command";
-import { PaneMode } from "@/model/constant/PaneMode";
-import { Match } from "@/model/matches/Match";
 import { vuescroll } from "vuescroll/types/vuescroll";
+import websocketService from "@/services/websocket.service";
+import PaneMatches from "@/components/PaneMatches.vue";
+import PaneScores from "@/components/PaneScores.vue";
+import { PaneMode } from "@/model/constant/PaneMode";
+import { Match } from "@/model/Match";
+import { Team } from "@/model/Team";
 
 @Component({
   components: { MatchList: PaneMatches },
 })
 export default class App extends Vue {
+  public titleValue = "";
   public clockValue = "loading...";
   public statusOnline = false;
 
-  public created() {
-    setInterval(this.updateClock, 1000);
+  private paneContainer!: Element;
+  private currentPane!: Vue;
 
+  public created() {
     websocketService.onConnect(() => {
       console.log("WS connected");
       this.statusOnline = true;
@@ -53,28 +59,57 @@ export default class App extends Vue {
     websocketService.onMessage((command) => this.handleCommand(command));
   }
 
+  public mounted() {
+    this.paneContainer = this.$refs.paneContent as Element;
+
+    this.updateClock();
+    setInterval(this.updateClock, 1000);
+  }
+
   private handleCommand(command: Command) {
     if (command.action == Action.DISPLAY_PANE) {
-      if (command.args.mode == PaneMode.MATCHES) {
-        const gameTag: string = command.args.gameTag;
-        const matchList: Match[] = command.args.matches;
-
-        const componentInstance = new PaneMatches({
-          propsData: {
-            gameTag: gameTag,
-            matchList: matchList,
-          },
-        });
-
-        const paneContent: Element = this.$refs.paneContent as Element;
-        componentInstance.$mount(paneContent).$el;
-
-        setTimeout(() => {
-          const paneScroller = this.$refs.paneScroller as vuescroll;
-          paneScroller.scrollTo({ y: "100%" }, 8000, "easeInOutQuad");
-        }, 500);
-      }
+      this.displayPane(command);
     }
+  }
+
+  private displayPane(command: Command) {
+    const args = command.args;
+    const mode = args.mode;
+    const title = args.title;
+
+    console.log("command.args.mode", mode);
+    console.log("command.args.title", title);
+
+    this.titleValue = title;
+
+    let newPane: Vue;
+
+    if (mode == PaneMode.MATCHES) {
+      newPane = App.preparePaneMatches(command);
+    } else if (mode == PaneMode.SCORES) {
+      newPane = App.preparePaneScores(command);
+    } else {
+      return;
+    }
+
+    newPane.$mount();
+
+    if (this.currentPane) {
+      this.paneContainer.removeChild(this.currentPane.$el);
+    }
+    this.paneContainer.appendChild(newPane.$el);
+
+    this.currentPane = newPane;
+
+    console.log("mounted", newPane);
+
+    const preScroll = args.preScroll;
+    const scrollDuration = args.scrollDuration;
+
+    setTimeout(() => {
+      const paneScroller = this.$refs.paneScroller as vuescroll;
+      paneScroller.scrollTo({ y: "100%" }, scrollDuration, "easeInOutQuad");
+    }, preScroll);
   }
 
   private updateClock() {
@@ -88,6 +123,30 @@ export default class App extends Vue {
     const second = now.getSeconds().toString().padStart(2, "0");
 
     this.clockValue = `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+  }
+
+  private static preparePaneMatches(command: Command) {
+    const gameTag: string = command.args.gameTag;
+    const matchList: Match[] = command.args.matches;
+
+    return new PaneMatches({
+      propsData: {
+        gameTag: gameTag,
+        matchList: matchList,
+      },
+    });
+  }
+
+  private static preparePaneScores(command: Command) {
+    const gameTag: string = command.args.gameTag;
+    const teamList: Team[] = command.args.teams;
+
+    return new PaneScores({
+      propsData: {
+        gameTag: gameTag,
+        teamList: teamList,
+      },
+    });
   }
 }
 </script>
